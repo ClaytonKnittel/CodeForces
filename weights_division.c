@@ -714,16 +714,10 @@ int main(int argc, char * argv[]) {
     int test_cases;
     int n, S;
 
-    printf("ok lets go!\n");
-
     assert(fscanf(stdin, "%d", &test_cases) == 1);
-
-    printf("size: %d\n", test_cases);
 
     for (int t = 0; t < test_cases; t++) {
         assert(fscanf(stdin, "%d %d", &n, &S) == 2);
-
-        printf(" n: %d, S: %d\n", n, S);
 
         node_t * nodes = (node_t *) calloc(n, sizeof(node_t));
         val_edge_t * edges = (val_edge_t *) malloc((n - 1) * sizeof(val_edge_t));
@@ -735,8 +729,6 @@ int main(int argc, char * argv[]) {
 
             add_edge(nodes, v - 1, u - 1, w, e);
         }
-
-        printf("done with adding edges\n");
 
         /*
         for (int i = 0; i < n; i++) {
@@ -759,14 +751,10 @@ int main(int argc, char * argv[]) {
         }
         free(nodes);
 
-        printf("done with resolving edges\n");
-
         uint32_t tot_w = 0;
         uint32_t n_actions = 0;
         heap_t h;
         heap_init(&h);
-
-        printf("done with initializing heap\n");
 
         for (int i = 0; i < n - 1; i++) {
             tot_w += edges[i].w;
@@ -774,8 +762,6 @@ int main(int argc, char * argv[]) {
             edges[i].node.key = (int64_t) (~(((edges[i].w + 1) / 2) * edges[i].n_children));
             heap_insert(&h, &edges[i].node);
         }
-
-        printf("done with inserting heap\n");
 
         /*for (int i = 0; i < n - 1; i++) {
             printf("(%u)\t%u %u\n", i, edges[i].w, edges[i].n_children);
@@ -797,8 +783,6 @@ int main(int argc, char * argv[]) {
 
             n_actions++;
         }
-
-        printf("done with counting\n");
 
         heap_destroy(&h);
 
