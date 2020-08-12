@@ -653,6 +653,10 @@ static void dylist_push(dylist_t * l, edge_t val) {
     l->len++;
 }
 
+static void dylist_delete(dylist_t * l) {
+    free(l->ptr);
+}
+
 
 typedef struct node {
     dylist_t edges;
@@ -722,7 +726,7 @@ int main(int argc, char * argv[]) {
         printf(" n: %d, S: %d\n", n, S);
 
         node_t * nodes = (node_t *) calloc(n, sizeof(node_t));
-        val_edge_t * edges = (val_edge_t *) malloc((n - 1) * sizeof(node_t));
+        val_edge_t * edges = (val_edge_t *) malloc((n - 1) * sizeof(val_edge_t));
 
         for (int e = 0; e < n - 1; e++) {
             int v, u;
@@ -749,6 +753,10 @@ int main(int argc, char * argv[]) {
 
         // set parent value to n, since no node has index n (node 0 has no parent)
         resolve_edges(edges, nodes, 0, n);
+
+        for (int i = 0; i < n; i++) {
+            dylist_delete(&nodes[i].edges);
+        }
         free(nodes);
 
         printf("done with resolving edges\n");
