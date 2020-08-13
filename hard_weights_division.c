@@ -890,6 +890,10 @@ int main(int argc, char * argv[]) {
         int64_t min_cost = l1.len + 2 * l2.len;
 
         uint32_t i1 = 0, i2 = l2.len;
+        while (i1 < l1.len && tots < nec_dif) {
+            tots += l1.ptr[i1];
+            i1++;
+        }
         while (1) {
             while (i2 > 0 && (tots - ((int64_t) l2.ptr[i2 - 1])) >= nec_dif) {
                 i2--;
