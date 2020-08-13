@@ -780,14 +780,16 @@ int main(int argc, char * argv[]) {
         }
         free(nodes);
 
-        uint64_t tot_w;
+        uint64_t tot_w = 0;
         uint32_t n_actions = 0;
         heap_t h1;
         heap_t h2;
         heap_init(&h1);
         heap_init(&h2);
 
+
         for (int i = 0; i < n - 1; i++) {
+            //printf("e %d, w=%d, nc=%d\n", i, edges[i].w, edges[i].n_children);
             tot_w += ((uint64_t) edges[i].w) * ((uint64_t) edges[i].n_children);
             // max-heap of difference that moves on edges would make
             edges[i].node.key = -(((heap_key_t) ((edges[i].w + 1) / 2)) * edges[i].n_children);
@@ -799,6 +801,8 @@ int main(int argc, char * argv[]) {
                 heap_insert(&h2, &edges[i].node);
             }
         }
+
+        //printf("tot: %llu\n", tot_w);
 
         int_dylist_t l1, l2;
         __builtin_memset(&l1, 0, sizeof(int_dylist_t));
@@ -861,18 +865,40 @@ int main(int argc, char * argv[]) {
 
         free(edges);
 
+        /*
+        printf("l1: [");
+        for (int i = 0; i < l1.len; i++) {
+            printf("%lld", l1.ptr[i]);
+            if (i != l1.len -  1) {
+                printf(", ");
+            }
+        }
+        printf("]\n");
+
+        printf("l2: [");
+        for (int i = 0; i < l2.len; i++) {
+            printf("%lld", l2.ptr[i]);
+            if (i != l2.len -  1) {
+                printf(", ");
+            }
+        }
+        printf("]\n");*/
+
         int64_t nec_dif = tot_w - S;
 
         int64_t tots = (int64_t) (tot_w - tot_w2);
-        int64_t min_cost = 2 * l2.len;
+        int64_t min_cost = l1.len + 2 * l2.len;
 
         uint32_t i1 = 0, i2 = l2.len;
         while (1) {
             while (i2 > 0 && (tots - ((int64_t) l2.ptr[i2 - 1])) >= nec_dif) {
                 i2--;
-                tots -= l2.ptr[i2 - 1];
+                tots -= l2.ptr[i2];
             }
-            min_cost = min(i1 + 2 * i2, min_cost);
+            //printf("(%d, %d) => %d (tot=%lld)\n", i1, i2, i1 + 2 * i2, tots);
+            if (tots >= nec_dif) {
+                min_cost = min(i1 + 2 * i2, min_cost);
+            }
             if (i1 == l1.len) {
                 break;
             }
