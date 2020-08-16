@@ -8,49 +8,65 @@
 // mod must be a power of 2
 #define ROUND_UP(num, mod) (((num) + ((mod) - 1)) & (~((mod) - 1)))
 
+#ifdef __LP64__
+
+typedef uint64_t bitv_t;
+#define BITV_IDX_SHIFT 6
+#define BITV_BMASK 0x3fLU
+#define BITV_LEN 2
+
+#else
+
+typedef uint32_t bitv_t;
+#define BITV_IDX_SHIFT 5
+#define BITV_BMASK 0x1f
+#define BITV_LEN 4
+
+#endif
+
 int main(int argc, char * argv[]) {
 
     int test_cases;
     int n;
 
-    uint64_t bitv[2];
+    bitv_t bitv[BITV_LEN];
 
     assert(fscanf(stdin, "%d", &test_cases) == 1);
 
     for (int t = 0; t < test_cases; t++) {
         assert(fscanf(stdin, "%d", &n) == 1);
 
-        bitv[0] = 0;
-        bitv[1] = 0;
+        for (int i = 0; i < BITV_LEN; i++) {
+            bitv[i] = 0;
+        }
 
         for (int i = 0; i < n; i++) {
             uint32_t a;
             assert(fscanf(stdin, "%d", &a) == 1);
 
-            uint32_t idx = a >> 6;
-            uint32_t bit = a & 0x3f;
-            bitv[idx] |= (1LU << bit);
+            uint32_t idx = a >> BITV_IDX_SHIFT;
+            uint32_t bit = a & BITV_BMASK;
+            bitv[idx] |= (bitv_t) (1LU << bit);
         }
 
+        //printf("%08x%08x%08x%08x\n", bitv[3], bitv[2], bitv[1], bitv[0]);
         //printf("%016llx%016llx\n", bitv[1], bitv[0]);
 
-        int32_t first_loc = __builtin_ffsl(bitv[0]);
-        uint64_t add = first_loc ? (1LU << (first_loc - 1)) : 0;
-        //printf("add 1: %llx\n", add);
-        uint64_t sum = bitv[0] + add;
-        bitv[0] &= sum;
-        int32_t rem = (add != 0LU) && (sum == 0LU);
+        int rem = 0;
+        int8_t bitcnt = 0;
 
-        int32_t sec_loc = __builtin_ffsl(bitv[1]);
-        add = rem ? rem : (sec_loc && !sum ? (1LU << (sec_loc - 1)) : 0);
-        //printf("add 2: %llx\n", add);
-        bitv[1] &= bitv[1] + add;
+        for (int i = 0; i < BITV_LEN; i++) {
+            int32_t loc = __builtin_ffsl(bitv[i]);
+            bitv_t add = rem ? rem : (loc ? (1LU << (loc - 1)) : 0);
+            bitv_t sum = bitv[i] + add;
+            rem = (add != 0LU) && (sum == 0LU);
 
-        //printf("first_loc: %d\nrem: %d\nsec_loc: %d\n", first_loc, rem, sec_loc);
+            bitv[i] = sum;
 
-        int is = bitv[0] == 0LU && bitv[1] == 0LU;
+            bitcnt += sum ? ((sum & (sum - 1)) ? 2 : 1) : 0;
+        }
 
-        printf("%s\n", is ? "YES" : "NO");
+        printf("%s\n", bitcnt == 1 ? "YES" : "NO");
     }
 }
 
