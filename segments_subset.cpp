@@ -87,42 +87,46 @@ private:
             return val;
         }
     };
+    typedef std::unordered_set<NodePtr, NodePtrHash> hashset_t;
 
     class Node {
     private:
 
-        typedef std::unordered_set<NodePtr, NodePtrHash> hashset_t;
+        uint64_t visited;
+        uint64_t count_cache;
 
-        std::set<NodePtr> children;
+        std::vector<NodePtr> children;
 
         LineSeg seg;
 
-        void insert(NodePtr node, hashset_t & visited) {
+        void insert(NodePtr node, uint64_t tag) {
             bool add = true;
             for (auto it = children.begin(); it != children.end();) {
                 NodePtr o = *it;
 
                 if (*o == *node) {
+                    add = false;
                     it++;
                     continue;
                 }
 
-                auto it2 = visited.find(o);
-                bool seen = (it2 != visited.end());
+                bool seen = (o->visited == tag);
                 if (!seen) {
-                    visited.insert(o);
+                    o->visited = tag;
                 }
 
                 if (node->seg.contains(o->seg)) {
-                    //printf("Erase (%d, %d) from (%d, %d)\n", o->seg.beg_idx, o->seg.end_idx, seg.beg_idx, seg.end_idx);
                     it = children.erase(it);
-                    hashset_t visited2;
-                    node->insert(o, visited2);
+                    if (add) {
+                        children.push_back(node);
+                        add = false;
+                    }
+                    node->insert(o, vcount++);
                 }
                 else if (o->seg.contains(node->seg)) {
                     add = false;
                     if (!seen) {
-                        o->insert(node, visited);
+                        o->insert(node, tag);
                     }
                     it++;
                 }
@@ -132,19 +136,19 @@ private:
             }
 
             if (add) {
-                children.insert(node);
+                children.push_back(node);
             }
         }
 
         void _print(int depth, hashset_t & visited, int & tot, size_t & n_childs) const {
             tot++;
             n_childs += children.size();
-            printf("%*s(%d, %d)\n", depth * 2, "", seg.beg_idx, seg.end_idx);
+            printf("%*s(%d, %d) (%llu)\n", depth * 2, "", seg.beg_idx, seg.end_idx, count_cache);
             for (const NodePtr p : children) {
 
                 auto it2 = visited.find(p);
                 if (it2 != visited.end()) {
-                    printf("\033[0;36m%*s(%d, %d)\033[0;39m\n", (depth + 1) * 2, "", p->seg.beg_idx, p->seg.end_idx);
+                    printf("\033[0;36m%*s(%d, %d) (%llu)\033[0;39m\n", (depth + 1) * 2, "", p->seg.beg_idx, p->seg.end_idx, p->count_cache);
                     continue;
                 }
                 else {
@@ -157,13 +161,12 @@ private:
 
     public:
 
-        Node() : seg{ LineSeg::min_val, LineSeg::max_val } {}
+        Node() : visited(0), seg{ LineSeg::min_val - 1, LineSeg::max_val + 1 } {}
         Node(const LineSeg & seg) : seg(seg) {}
 
-        void insert(const LineSeg & seg) {
-            hashset_t visited;
+        void insert(const LineSeg & seg, uint64_t tag) {
             NodePtr node(seg);
-            this->insert(node, visited);
+            this->insert(node, tag);
         }
 
         bool operator<(const Node & n) const {
@@ -182,22 +185,70 @@ private:
             printf("Total: %d\nTotal num children: %zu\navg n children: %f\n", tot, n_children, n_children / (static_cast<double>(tot)));
         }
 
-        void validate() {
-            for (NodePtr p : children) {
-                assert(!(*p == *this));
-                for (auto it = children.upper_bound(p); it != children.end(); it++) {
-                    if (p->seg.contains((*it)->seg)) {
-                        printf("seg (%d, %d) contains (%d, %d)\n", p->seg.beg_idx, p->seg.end_idx, (*it)->seg.beg_idx, (*it)->seg.end_idx);
+        void validate(hashset_t & visited) {
+            for (size_t i = 0; i < children.size(); i++) {
+                NodePtr p = children[i];
+                for (size_t j = i + 1; j < children.size(); j++) {
+                    NodePtr q = children[j];
+                    assert(p->seg.beg_idx < q->seg.beg_idx);
+                    assert(p->seg.end_idx < q->seg.end_idx);
+                    if (p->seg.contains(q->seg)) {
+                        printf("seg (%d, %d) contains (%d, %d)\n", p->seg.beg_idx, p->seg.end_idx, q->seg.beg_idx, q->seg.end_idx);
                     }
-                    if ((*it)->seg.contains(p->seg)) {
-                        printf("seg (%d, %d) contains (%d, %d)\n", (*it)->seg.beg_idx, (*it)->seg.end_idx, p->seg.beg_idx, p->seg.end_idx);
+                    if (q->seg.contains(p->seg)) {
+                        printf("seg (%d, %d) contains (%d, %d)\n", q->seg.beg_idx, q->seg.end_idx, p->seg.beg_idx, p->seg.end_idx);
                     }
-                    assert(!p->seg.contains((*it)->seg));
-                    assert(!(*it)->seg.contains(p->seg));
+                    assert(!p->seg.contains(q->seg));
+                    assert(!q->seg.contains(p->seg));
+                }
+                auto it = visited.find(p);
+                if (it == visited.end()) {
+                    visited.insert(p);
+                    p->validate(visited);
+                }
+            }
+        }
+
+        void sort(uint64_t tag) {
+            std::sort(children.begin(), children.end());
+            for (size_t i = 0; i < children.size(); i++) {
+                NodePtr p = children[i];
+                if (p->visited != tag) {
+                    p->visited = tag;
+                    p->sort(tag);
+                }
+            }
+        }
+
+        uint64_t count(uint64_t tag) {
+            if (visited == tag) {
+                return count_cache;
+            }
+            visited = tag;
+
+            uint32_t csize = children.size();
+
+            if (csize == 0) {
+                count_cache = 1;
+            }
+            else {
+                uint64_t *cnts = new uint64_t[csize];
+                int32_t j = -1;
+                for (int32_t i = 0; i < csize; i++) {
+                    uint32_t beg_idx = children[i]->seg.beg_idx;
+                    while (j + 1 < i && children[j + 1]->seg.end_idx < beg_idx) {
+                        j++;
+                    }
+                    uint64_t with_cnt = children[i]->count(tag) + (j >= 0 ? cnts[j] : 0);
+                    uint64_t sin_cnt  = (i > 0 ? cnts[i - 1] : 0);
+                    cnts[i] = std::max(with_cnt, sin_cnt);
                 }
 
-                p->validate();
+                count_cache = 1 + cnts[csize - 1];
+
+                delete [] cnts;
             }
+            return count_cache;
         }
     };
 
@@ -205,8 +256,12 @@ private:
 
 public:
 
+    static uint64_t vcount;
+
     void insert(const LineSeg & seg) {
-        root.insert(seg);
+        uint64_t tag = vcount;
+        vcount++;
+        root.insert(seg, tag);
     }
 
     void print() const {
@@ -214,10 +269,27 @@ public:
     }
 
     void validate() {
-        root.validate();
+        hashset_t visited;
+        root.validate(visited);
+    }
+
+    void sort_all() {
+        uint64_t tag = vcount;
+        vcount++;
+        root.sort(tag);
+    }
+
+    uint64_t get_count() {
+        uint64_t tag = vcount;
+        vcount++;
+        // subtract one for imaginary node [0, 200001] at root
+        return root.count(tag) - 1;
     }
 
 };
+
+
+uint64_t SegTree::vcount = 1;
 
 
 
@@ -240,15 +312,20 @@ int main(int argc, char * argv[]) {
             fscanf(stdin, "%d %d", &l, &r);
             assert(l <= r);
 
-            printf("\non %d, insert (%d, %d)\n", i, l, r);
+            //printf("\non %d, insert (%d, %d)\n", i, l, r);
 
             s.insert({ l, r });
             //s.print();
-            //s.validate();
         }
 
-        printf("go\n");
+
+        s.sort_all();
+        s.get_count();
         s.print();
+        s.validate();
+
+        //printf("Count: %llu\n", s.get_count());
+        printf("%llu\n", s.get_count());
 
         /*
         printf("size: %zu\n", s.size());
