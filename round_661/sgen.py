@@ -8,7 +8,7 @@ with open("stest2.txt", "w+") as file:
 
     all = set()
 
-    n = 30
+    n = 3000
     file.write('{}\n'.format(n))
     for num in range(n):
         while 1:
